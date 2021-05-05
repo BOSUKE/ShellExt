@@ -1,0 +1,34 @@
+﻿// ShellExt.idl : ShellExt の IDL ソース
+//
+
+// このファイルは、タイプ ライブラリ ([!output SAFE_IDL_NAME].tlb) およびマーシャリング コードを
+// タイプ ライブラリ (ShellExt.tlb) とマーシャリング コードを生成します。
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	object,
+	uuid(3524cbf7-53bf-46db-b980-7b962c36a914),
+	pointer_default(unique)
+]
+interface IShellExtObject : IUnknown
+{
+};
+[
+	uuid(48ad19a7-9fa2-4f57-9b77-8d42feea8bf3),
+	version(1.0),
+]
+library ShellExtLib
+{
+	importlib("stdole2.tlb");
+	[
+		uuid(e58594c8-8717-4e04-a6f6-3ebd1df64d9d)
+	]
+	coclass ShellExtObject
+	{
+		[default] interface IShellExtObject;
+	};
+};
+
+import "shobjidl.idl";

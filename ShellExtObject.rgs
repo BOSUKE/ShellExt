@@ -1,0 +1,39 @@
+HKCR
+{
+	NoRemove CLSID
+	{
+		ForceRemove {e58594c8-8717-4e04-a6f6-3ebd1df64d9d} = s 'ShellExtObject class'
+		{
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Apartment'
+			}
+			Version = s '1.0'
+		}
+	}
+	NoRemove AllFilesystemObjects
+	{
+		NoRemove ShellEx
+		{
+			NoRemove ContextMenuHandlers
+			{
+				ForceRemove ShellExtB = s '{e58594c8-8717-4e04-a6f6-3ebd1df64d9d}'
+			}
+		}
+	}
+	NoRemove Directory
+	{
+		NoRemove Background
+		{
+			NoRemove ShellEx
+			{
+				NoRemove ContextMenuHandlers
+				{
+				  ForceRemove ShellExtB = s '{e58594c8-8717-4e04-a6f6-3ebd1df64d9d}'
+				}
+			}
+		}
+	}
+}
+
+
