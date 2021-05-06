@@ -248,7 +248,7 @@ void CShellExtObject::CreateShortcut()
   if (mFilePathes.size() != 1) return;
   if (!fs::is_directory(mFilePathes[0])) return;
 
-  const fs::path dstPath = savedPath;
+  const fs::path dstPath = ConvertPathToUNC(savedPath);
   fs::path dstLastNode;
   for (const auto& n : dstPath) {
     dstLastNode = n;
