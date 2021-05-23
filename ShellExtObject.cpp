@@ -163,6 +163,45 @@ namespace {
       }
     }
   }
+
+  bool CopyFile(const std::wstring& srcPath, const std::wstring& dstDir)
+  {
+    CComPtr<IFileOperation> fileOp;
+    HRESULT hr = fileOp.CoCreateInstance(CLSID_FileOperation, NULL, CLSCTX_INPROC_SERVER);
+    if (hr != S_OK) return false;
+
+    CComPtr<IShellItem> src;
+    hr = SHCreateItemFromParsingName(srcPath.c_str(), NULL, IID_PPV_ARGS(&src));
+    if (hr != S_OK) return false;
+
+
+    CComPtr<IShellItem> dst;
+    hr = SHCreateItemFromParsingName(dstDir.c_str(), NULL, IID_PPV_ARGS(&dst));
+    if (hr != S_OK) return false;
+
+    hr = fileOp->CopyItem(src, dst, NULL, NULL);
+    if (hr != S_OK) return false;
+
+    hr = fileOp->PerformOperations();
+    if (hr != S_OK) return false;
+
+    BOOL aborted = FALSE;
+    hr = fileOp->GetAnyOperationsAborted(&aborted);
+    if ((hr != S_OK) || aborted) {
+      return false;
+    }
+    return true;
+  }
+
+  void CopyFileToTempAndOpen(const std::wstring& filePath)
+  {
+    fs::path srcPath = filePath;
+    fs::path dstDir = fs::temp_directory_path();
+    fs::path dstPath = dstDir / srcPath.filename();
+    if (!CopyFile(srcPath, dstDir)) return;
+    ::ShellExecuteW(NULL, L"open", dstPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+  }
+
 }
 
 void CShellExtObject::CopyPath(bool with_dir)
@@ -351,27 +390,35 @@ STDMETHODIMP CShellExtObject::InvokeCommand(CMINVOKECOMMANDINFO* pici)
   if (HIWORD(pici->lpVerb) != 0) {
     return E_INVALIDARG;
   }
-  switch (LOWORD(pici->lpVerb)) {
-  case 0:
+  int menuItemIndex = LOWORD(pici->lpVerb);
+  if (menuItemIndex >= MAX_MENU_ITEM) {
+    return E_INVALIDARG;
+  }
+  int menuItem = mMenuItem[menuItemIndex];
+  switch (menuItem) {
+  case COPY_PATH_NO_DIR:
     CopyPath(false);
     break;
-  case 1:
+  case COPY_PATH_WITH_DIR:
     CopyPath(true);
     break;
-  case 2:
+  case SAVE_PATH:
     SavePath();
     break;
-  case 3:
+  case CREATE_SHORTCUT:
     CreateShortcut();
     break;
-  case 4:
+  case EXPLORE_SAVED_PATH:
     ExploreSavedPath(pici->hwnd);
     break;
-  case 5:
+  case OPEN_CLIPBOARD_PATH:
     OpenClipBoardPath(pici->hwnd);
     break;
-  case 6:
+  case EXPLORE_CLIPBOARD_PATH:
     ExploreClipBoardPath(pici->hwnd);
+    break;
+  case COPY_AND_OPEN:
+    CopyAndOpen();
     break;
   default:
     return E_INVALIDARG;
@@ -389,27 +436,38 @@ STDMETHODIMP CShellExtObject::QueryContextMenu(HMENU hmenu, UINT indexMenu, UINT
   HMENU submenu = CreatePopupMenu();
   UINT id = idCmdFirst;
   UINT pos = 0;
-  
-  InsertMenuW(submenu, pos++, MF_BYPOSITION, id++, L"パスコピー(ディレクトリ別)");
-  InsertMenuW(submenu, pos++, MF_BYPOSITION, id++, L"パスコピー(ディレクトリ付)");
+
+  auto addItem = [&](int menuItem, const wchar_t* str) {
+    InsertMenuW(submenu, pos, MF_BYPOSITION, id, str);
+    mMenuItem[pos] = menuItem;
+    pos++;
+    id++;
+  };
+  addItem(COPY_PATH_NO_DIR, L"パスコピー(ディレクトリ別)");
+  addItem(COPY_PATH_WITH_DIR, L"パスコピー(ディレクトリ付)");
   if (mFilePathes.size() == 1) {
-    InsertMenuW(submenu, pos, MF_BYPOSITION, id++, L"パスを覚える");
+    addItem(SAVE_PATH, L"パスを覚える");
   }
-  pos++;
 
   if (mClickFolder) {
     const std::wstring savedPath = LoadPath();
     if (!savedPath.empty()) {
-      InsertMenuW(submenu, pos, MF_BYPOSITION, id++, L"覚えた奴のショートカット作成");
-      InsertMenuW(submenu, pos + 1, MF_BYPOSITION, id++, L"覚えた奴の場所を開く");
+      addItem(CREATE_SHORTCUT, L"覚えた奴のショートカット作成");
+      addItem(EXPLORE_SAVED_PATH, L"覚えた奴の場所を開く");
     }
-    pos += 2;
     if (!GetPathFromClipboard().empty()) {
-      InsertMenuW(submenu, pos, MF_BYPOSITION, id++, L"ClipBoardの奴を開く");
-      InsertMenuW(submenu, pos + 1, MF_BYPOSITION, id++, L"ClipBoardの奴の場所を開く");
+      addItem(OPEN_CLIPBOARD_PATH, L"ClipBoardの奴を開く");
+      addItem(EXPLORE_CLIPBOARD_PATH, L"ClipBoardの奴の場所を開く");
     }
-    pos += 2;
+  } else {
+    if (mFilePathes.size() == 1) {
+      fs::path p = mFilePathes[0];
+      if (fs::exists(p) && fs::is_regular_file(p)) {
+        addItem(COPY_AND_OPEN, L"コピーして開く");
+      }
+    }
   }
+  std::fill_n(mMenuItem + pos, MAX_MENU_ITEM - pos, MAX_MENU_ITEM);
 
   MENUITEMINFO mii;
   mii.cbSize = sizeof(mii);
@@ -420,4 +478,11 @@ STDMETHODIMP CShellExtObject::QueryContextMenu(HMENU hmenu, UINT indexMenu, UINT
   InsertMenuItemW(hmenu, indexMenu, TRUE, &mii);
 
   return MAKE_HRESULT(SEVERITY_SUCCESS, FACILITY_NULL, id - idCmdFirst);
+}
+
+void CShellExtObject::CopyAndOpen()
+{
+  if (mFilePathes.size() != 1) return;
+  std::thread t(CopyFileToTempAndOpen, mFilePathes[0]);
+  t.detach();
 }

@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <userenv.h>
 #include <wchar.h>
+#include <thread>
 #include "srell.hpp"
 
 #endif //PCH_H

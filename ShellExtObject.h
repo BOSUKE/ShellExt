@@ -54,8 +54,22 @@ END_COM_MAP()
 	}
 
 protected:
+
+	enum {
+		COPY_PATH_NO_DIR,
+		COPY_PATH_WITH_DIR,
+		SAVE_PATH,
+		CREATE_SHORTCUT,
+		EXPLORE_SAVED_PATH,
+		OPEN_CLIPBOARD_PATH,
+		EXPLORE_CLIPBOARD_PATH,
+		COPY_AND_OPEN,
+		MAX_MENU_ITEM
+	};
+	
 	bool mClickFolder;
 	std::vector<std::wstring> mFilePathes;
+	int mMenuItem[MAX_MENU_ITEM];
 
 	void CopyPath(bool with_dir);
 	void SavePath();
@@ -63,6 +77,7 @@ protected:
 	void ExploreSavedPath(HWND hwnd);
 	void OpenClipBoardPath(HWND hwnd);
 	void ExploreClipBoardPath(HWND hwnd);
+	void CopyAndOpen();
 
 public:
 	// IShellExtInit
